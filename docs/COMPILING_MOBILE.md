@@ -81,7 +81,7 @@ Note that you can only build the game for iOS on a computer running MacOS.
 ### iOS Troubleshooting
 
 - **A required plugin failed to load. Please ensure system content is up-to-date — try running 'xcodebuild -runFirstLaunch'.**
-Make sure you have the iOS SDK isntalled, see Step 2.
+Make sure you have the iOS SDK installed, see Step 2.
 
 - **error: No Accounts: Add a new account in Accounts settings. (in target 'Funkin' from project 'Funkin')**
 
