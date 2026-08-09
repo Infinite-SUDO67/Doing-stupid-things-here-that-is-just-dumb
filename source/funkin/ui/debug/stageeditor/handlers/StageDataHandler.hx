@@ -296,8 +296,18 @@ class StageDataHandler
     for (objData in data.props)
     {
       var spr = new StageEditorObject();
-      if (!objData.assetPath.startsWith("#")) state.bitmaps.set(objData.assetPath, Assets.getBitmapData(Paths.image(objData.assetPath)));
-
+      if (!objData.assetPath.startsWith("#"))
+{
+  if (objData.animType == "animateatlas")
+  {
+    var atlasImgPath:String = Paths.file("images/" + objData.assetPath + "/spritemap1.png");
+    state.bitmaps.set(objData.assetPath, Assets.exists(atlasImgPath) ? Assets.getBitmapData(atlasImgPath) : new openfl.display.BitmapData(1, 1, true, 0x00000000));
+  }
+  else
+  {
+    state.bitmaps.set(objData.assetPath, Assets.getBitmapData(Paths.image(objData.assetPath)));
+  }
+}
       var usePacker:Bool = objData.animType == "packer";
       var animPath:String = Paths.file("images/" + objData.assetPath + (usePacker ? ".txt" : ".xml"));
       var animText:String = Assets.exists(animPath) ? Assets.getText(animPath) : "";
@@ -305,7 +315,7 @@ class StageDataHandler
       spr.fromData({
         name: objData.name ?? "Unnamed",
         assetPath: objData.assetPath,
-        animations: objData.animations.copy(),
+        animations: objData.animations != null ? objData.animations.copy() : [],
         scale: objData.scale,
         position: objData.position,
         alpha: objData.alpha,
