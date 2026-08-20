@@ -19,7 +19,8 @@ import thx.semver.Version as SemverVersion;
 /**
  * Contains functions for importing, loading, saving, and exporting charts.
  */
-@:nullSafety @:access(funkin.ui.debug.charting.ChartEditorState)
+@:nullSafety
+@:access(funkin.ui.debug.charting.ChartEditorState)
 class ChartEditorImportExportHandler
 {
   public static final BACKUPS_PATH:String = './backups/charts/';
@@ -31,7 +32,9 @@ class ChartEditorImportExportHandler
   {
     trace('===============START');
 
-    var song:Null<Song> = SongRegistry.instance.fetchEntry(songId, {variation: targetSongVariation});
+    var song:Null<Song> = SongRegistry.instance.fetchEntry(songId, {
+      variation: targetSongVariation
+    });
 
     if (song == null) return;
 
@@ -104,13 +107,17 @@ class ChartEditorImportExportHandler
         }
 
         // Set the difficulty of the song if one was passed in the params, and it isn't the default
-        if (targetSongDifficulty != null
+        if (
+          targetSongDifficulty != null
           && targetSongDifficulty != state.selectedDifficulty
-          && targetSongDifficulty == diff.difficulty) state.selectedDifficulty = targetSongDifficulty;
+          && targetSongDifficulty == diff.difficulty
+        ) state.selectedDifficulty = targetSongDifficulty;
         // Set the variation of the song if one was passed in the params, and it isn't the default
-        if (targetSongVariation != null
+        if (
+          targetSongVariation != null
           && targetSongVariation != state.selectedVariation
-          && targetSongVariation == diff.variation) state.selectedVariation = targetSongVariation;
+          && targetSongVariation == diff.variation
+        ) state.selectedVariation = targetSongVariation;
       }
     }
 
@@ -136,8 +143,7 @@ class ChartEditorImportExportHandler
    * @param newSongMetadata The song metadata to load.
    * @param newSongChartData The song chart data to load.
    */
-  public static function loadSong(state:ChartEditorState, newSongMetadata:Map<String, SongMetadata>, newSongChartData:Map<String, SongChartData>,
-      ?newSongManifestData:ChartManifestData):Void
+  public static function loadSong(state:ChartEditorState, newSongMetadata:Map<String, SongMetadata>, newSongChartData:Map<String, SongChartData>, ?newSongManifestData:ChartManifestData):Void
   {
     state.songMetadata = newSongMetadata;
     state.songChartData = newSongChartData;
@@ -187,9 +193,11 @@ class ChartEditorImportExportHandler
         // Delay it so it doesn't overlap other notifications
         flixel.util.FlxTimer.wait(delay, () ->
         {
-          state.warning('Stacked Notes Detected',
+          state.warning(
+            'Stacked Notes Detected',
             'Found $stackedNotesCount stacked note(s) in \'${variation.toTitleCase()}\' variation, ' +
-            'on ${affectedDiffs.joinPlural()} difficult${affectedDiffs.length > 1 ? 'ies' : 'y'}.');
+            'on ${affectedDiffs.joinPlural()} difficult${affectedDiffs.length > 1 ? 'ies' : 'y'}.'
+          );
         });
         delay *= 1.5;
       }
@@ -248,35 +256,62 @@ class ChartEditorImportExportHandler
    * Load a chart's metadata, chart data, and audio from an FNFC archive.
    * @param state
    * @param bytes
-   * @param instId
    * @return `null` on failure, `[]` on success, `[warnings]` on success with warnings.
    */
   public static function loadFromFNFC(state:ChartEditorState, bytes:Bytes):Null<Array<String>>
   {
     var output:Array<String> = [];
 
-    // TODO: Combine with code in FNFCUtil.hx
-
     // Read the ZIP/.FNFC file, and create a map of entries.
     var fileEntries:Array<haxe.zip.Entry> = FileUtil.readZIPFromBytes(bytes);
     var mappedFileEntries:Map<String, haxe.zip.Entry> = FileUtil.mapZIPEntriesByName(fileEntries);
-    var manifestString:String = mappedFileEntries.get('manifest.json')?.data?.toString() ?? throw 'Could not locate manifest.';
-    var manifest:ChartManifestData = ChartManifestData.deserialize(manifestString) ?? throw 'Could not read manifest.';
+
+    var manifestString:Null<String> = mappedFileEntries.get('manifest.json')?.data?.toString();
+    if (manifestString == null)
+    {
+      state.warning('Load Failed', 'Could not locate manifest.json in chart package.');
+      return null;
+    }
+
+    var manifest:Null<ChartManifestData> = ChartManifestData.deserialize(manifestString);
+    if (manifest == null)
+    {
+      state.warning('Load Failed', 'Could not parse manifest.json data.');
+      return null;
+    }
 
     var baseMetadataPath:String = manifest.getMetadataFileName();
-    var baseMetadataString:String = mappedFileEntries.get(baseMetadataPath)?.data?.toString() ?? throw 'Could not locate metadata (default).';
-    var baseMetadataVersion:SemverVersion = VersionUtil.getVersionFromJSON(baseMetadataString) ?? throw 'Could not read metadata version (default).';
-    var baseMetadata:SongMetadata = SongRegistry.instance.parseEntryMetadataRawWithMigration(baseMetadataString, baseMetadataPath,
-      baseMetadataVersion) ?? throw 'Could not read metadata (default).';
+    var baseMetadataString:Null<String> = mappedFileEntries.get(baseMetadataPath)?.data?.toString();
+    if (baseMetadataString == null)
+    {
+      state.warning('Load Failed', 'Could not locate metadata ($baseMetadataPath).');
+      return null;
+    }
 
+    var baseMetadataVersion:Null<SemverVersion> = VersionUtil.getVersionFromJSON(baseMetadataString);
+    if (baseMetadataVersion == null)
+    {
+      state.warning('Load Failed', 'Could not read metadata version (default).');
+      return null;
+    }
+
+    var baseMetadata:Null<SongMetadata> = SongRegistry.instance.parseEntryMetadataRawWithMigration(baseMetadataString, baseMetadataPath, baseMetadataVersion);
+    if (baseMetadata == null)
+    {
+      state.warning('Load Failed', 'Could not read metadata (default).');
+      return null;
+    }
     var songMetadatas:Map<String, SongMetadata> = [];
     songMetadatas.set(Constants.DEFAULT_VARIATION, baseMetadata);
 
     var baseChartDataPath:String = manifest.getChartDataFileName();
     var baseChartDataString:String = mappedFileEntries.get(baseChartDataPath)?.data?.toString() ?? throw 'Could not locate chart data (default).';
     var baseChartDataVersion:SemverVersion = VersionUtil.getVersionFromJSON(baseChartDataString) ?? throw 'Could not read chart data version (default).';
-    var baseChartData:SongChartData = SongRegistry.instance.parseEntryChartDataRawWithMigration(baseChartDataString, baseChartDataPath,
-      baseChartDataVersion) ?? throw 'Could not read chart data (default).';
+    var baseChartData:SongChartData = SongRegistry.instance.parseEntryChartDataRawWithMigration(
+      baseChartDataString,
+      baseChartDataPath,
+      baseChartDataVersion
+    ) ?? throw 'Could not read chart data (default).';
 
     var songChartDatas:Map<String, SongChartData> = [];
     songChartDatas.set(Constants.DEFAULT_VARIATION, baseChartData);
@@ -288,18 +323,28 @@ class ChartEditorImportExportHandler
       var variMetadataPath:String = manifest.getMetadataFileName(variation);
       var variMetadataString:String = mappedFileEntries.get(variMetadataPath)?.data?.toString() ?? throw 'Could not locate metadata ($variation).';
       var variMetadataVersion:SemverVersion = VersionUtil.getVersionFromJSON(variMetadataString) ?? throw 'Could not read metadata ($variation) version.';
-      var variMetadata:SongMetadata = SongRegistry.instance.parseEntryMetadataRawWithMigration(variMetadataString, variMetadataPath, variMetadataVersion,
-        variation) ?? throw 'Could not read metadata ($variation).';
+      var variMetadata:SongMetadata = SongRegistry.instance.parseEntryMetadataRawWithMigration(
+        variMetadataString,
+        variMetadataPath,
+        variMetadataVersion,
+        variation
+      ) ?? throw 'Could not read metadata ($variation).';
 
       songMetadatas.set(variation, variMetadata);
 
       var variChartDataPath:String = manifest.getChartDataFileName(variation);
       var variChartDataString:String = mappedFileEntries.get(variChartDataPath)?.data?.toString() ?? throw 'Could not locate chart data ($variation).';
       var variChartDataVersion:SemverVersion = VersionUtil.getVersionFromJSON(variChartDataString) ?? throw 'Could not read chart data version ($variation).';
-      var variChartData:SongChartData = SongRegistry.instance.parseEntryChartDataRawWithMigration(variChartDataString, variChartDataPath,
-        variChartDataVersion, variation) ?? throw 'Could not read chart data ($variation).';
+      var variChartData:SongChartData = SongRegistry.instance.parseEntryChartDataRawWithMigration(
+        variChartDataString,
+        variChartDataPath,
+        variChartDataVersion,
+        variation
+      ) ?? throw 'Could not read chart data ($variation).';
+
       songChartDatas.set(variation, variChartData);
     }
+
     loadSong(state, songMetadatas, songChartDatas, manifest);
 
     state.sortChartData();
@@ -328,12 +373,10 @@ class ChartEditorImportExportHandler
         if (playerVocalsFileBytes == null)
         {
           output.push('Could not find vocals ($playerVocalsFileName).');
-          // throw 'Could not find vocals ($playerVocalsFileName).';
         }
         else if (!ChartEditorAudioHandler.loadVocalsFromBytes(state, playerVocalsFileBytes, voice, instId))
         {
           output.push('Could not parse vocals ($playerCharId).');
-          // throw 'Could not parse vocals ($playerCharId).';
         }
       }
 
@@ -353,10 +396,6 @@ class ChartEditorImportExportHandler
         }
       }
     }
-
-    // Apply chart data.
-    trace(songMetadatas);
-    trace(songChartDatas);
 
     state.switchToCurrentInstrumental();
     state.postLoadInstrumental();
@@ -431,8 +470,8 @@ class ChartEditorImportExportHandler
    * @param onSaveCb Callback for when the file is saved.
    * @param onCancelCb Callback for when saving is cancelled.
    */
-  public static function exportAllSongData(state:ChartEditorState, force:Bool = false, targetPath:Null<String>, ?onSaveCb:String->Void,
-      ?onCancelCb:Void->Void):Void
+  public static function exportAllSongData(state:ChartEditorState, force:Bool = false, targetPath:Null<String>, ?onSaveCb:String->Void, ?onCancelCb:Void->
+    Void):Void
   {
     var zipEntries:Array<haxe.zip.Entry> = [];
 
